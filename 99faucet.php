@@ -244,7 +244,8 @@ echo "STEP B\n";
 $dash = skibidixxx($url, "GET", [], $a);
 
 echo "STEP C\n";
-echo substr($dash, 0, 200);
+file_put_contents("debug.html", $dash);
+echo "saved debug.html\n";
 echo "\n";
 
 if ($dash == "ngelek" || strpos($dash, "Just a moment") !== false) {
