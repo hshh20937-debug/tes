@@ -246,6 +246,13 @@ $dash = skibidixxx($url, "GET", [], $a);
 echo "STEP C\n";
 file_put_contents("debug.html", $dash);
 echo "saved debug.html\n";
+preg_match('/<title>(.*?)<\/title>/is', $dash, $m);
+
+if (isset($m[1])) {
+    echo "TITLE: ".$m[1]."\n";
+} else {
+    echo "TITLE NOT FOUND\n";
+}
 echo "\n";
 
 if ($dash == "ngelek" || strpos($dash, "Just a moment") !== false) {
