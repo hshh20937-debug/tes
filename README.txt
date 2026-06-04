@@ -1,0 +1,1 @@
+Upload ke GitHub lalu deploy di Railway. Isi API_KEY, COOKIE, dan COIN pada Variables Railway.
