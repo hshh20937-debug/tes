@@ -27,7 +27,7 @@ const host        = "https://99faucet.com";
 const api_in      = "https://api.waryono.my.id/in.php";
 
 function clear() {
-    (PHP_OS == "Linux") ? system('clear') : pclose(popen('cls', 'w'));
+    return;
 }
 
 function uf() {
@@ -262,8 +262,10 @@ if (strpos($dash, "Dashboard | 99Faucet") !== false) {
         }
     }
     echo putih."chosee: ".merah;
-    $handle = fopen("php://stdin", "r");
-    $input = trim(fgets($handle));
+    $memek = strtolower(getenv('COIN') ?: 'usdt');
+
+        echo putih."Coin : ".hijau.strtoupper($memek)."\n";
+        echo putih."Auto Mode Railway\n\n";
     fclose($handle);
     if (!is_numeric($input)) {
         echo putih."Invalid input! Please enter a number.\n";
