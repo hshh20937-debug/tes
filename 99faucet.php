@@ -235,8 +235,17 @@ $a = [
     "cookie: " . $coki
 ];
 
+echo "STEP A\n";
+
 $url = host."/dashboard";
+
+echo "STEP B\n";
+
 $dash = skibidixxx($url, "GET", [], $a);
+
+echo "STEP C\n";
+echo substr($dash, 0, 200);
+echo "\n";
 
 if ($dash == "ngelek" || strpos($dash, "Just a moment") !== false) {
     bypassCloudflare($config, $configFile, $url);
