@@ -214,12 +214,11 @@ banner();
 $apikey = getenv('API_KEY');
 $coki   = getenv('COOKIE');
 $ua     = getenv('USER_AGENT') ?: "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 Chrome/142.0.0.0 Mobile Safari/537.36";
-$memek  = strtolower(getenv('COIN') ?: 'pepe');
+$memek  = strtolower(getenv('COIN') ?: 'usdt');
 
 if (!$apikey || !$coki) {
-    die("API_KEY atau COOKIE belum diisi!
-");
-} Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Mobile Safari/537.36";
+    die("API_KEY atau COOKIE belum diisi!\n");
+}
 
 
 dash:
