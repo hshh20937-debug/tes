@@ -2,7 +2,6 @@
 
 error_reporting(0);
 date_default_timezone_set('Asia/Jakarta');
-$configFile = "config.json";
 
 const hitam  = "\033[0;30m";
 const merah  = "\033[0;31m";
@@ -12,14 +11,6 @@ const biru   = "\033[0;34m";
 const cyan   = "\033[0;36m";
 const putih  = "\033[0;37m";
 const reset  = "\033[0m";
-const bg_hitam  = "\033[40m";
-const bg_merah  = "\033[41m";
-const bg_hijau  = "\033[42m";
-const bg_kuning = "\033[43m";
-const bg_biru   = "\033[44m";
-const bg_ungu   = "\033[45m";
-const bg_cyan   = "\033[46m";
-const bg_putih  = "\033[47m";
 
 const version     = "1.0";
 const script_name = "99faucet.com";
@@ -27,7 +18,7 @@ const host        = "https://99faucet.com";
 const api_in      = "https://api.waryono.my.id/in.php";
 
 function clear() {
-    return;
+    (PHP_OS == "Linux") ? system('clear') : pclose(popen('cls', 'w'));
 }
 
 function uf() {
@@ -142,16 +133,14 @@ function slider($app_id, $public_key, $version, $reff, $apikey) {
     $res = $json["request"];
     preg_match('/rs_token:(\d+),rs_res:([^,]+)/', $res, $match);
     return [
-        "rs_token" => $match[1], 
+        "rs_token" => $match[1],
         "rs_res"   => $match[2]
     ];
 }
 
-
-
-function bypassCloudflare(&$config, $configFile, $target) {
+function bypassCloudflare(&$config, $target) {
     echo putih . "Cloudflare! wait.. ";
-    $python_cmd = "python exec.py " . $target ." 2>/dev/null";
+    $python_cmd = "python exec.py " . $target . " 2>/dev/null";
     $output = exec($python_cmd);
     $data_bypass = json_decode($output, true);
     if (isset($data_bypass['cf_clearance']) && !empty($data_bypass['cf_clearance'])) {
@@ -172,7 +161,11 @@ function bypassCloudflare(&$config, $configFile, $target) {
         }
         $config['cookie'] = $new_cookie_str;
         $config['user_agent'] = $new_ua;
-        file_put_contents($configFile, json_encode($config, JSON_PRETTY_PRINT));
+
+        // ✅ Update env vars di Railway tidak bisa langsung, tapi update in-memory config
+        putenv("COOKIE=" . $new_cookie_str);
+        putenv("USER_AGENT=" . $new_ua);
+
         echo hijau . "Success Solver Cloudflare! WAF\n";
         echo putih."------------------------------------------------------\n";
         sleep(2);
@@ -184,196 +177,202 @@ function bypassCloudflare(&$config, $configFile, $target) {
     }
 }
 
-function getConfig($configFile) {
-    if (!file_exists($configFile)) {
-        echo putih . "API Key: " . kuning;
-        $apikey = trim(fgets(STDIN));
-        echo putih . "Cookie: " . kuning;
-        $coki = trim(fgets(STDIN));
-        $data = ["apikey" => $apikey, "cookie" => $coki];
-        file_put_contents($configFile, json_encode($data, JSON_PRETTY_PRINT));
-        echo hijau . "disimpan ke $configFile\n\n" . reset;
-        sleep(3);
-        return $data;
-    }
-    return json_decode(file_get_contents($configFile), true);
-}
-
-
 function banner() {
     echo putih  . "-----------------------------------------------------\n";
-    echo cyan   . hijau .script_name.putih." Rscap Slider + Seledroid (opsional)\n";
+    echo cyan   . hijau . script_name . putih . " Rscap Slider + Seledroid (opsional)\n";
     echo putih  . "-----------------------------------------------------\n\n";
 }
 
-login:
+// ============================================================
+// ✅ BACA CONFIG DARI ENVIRONMENT VARIABLES (RAILWAY)
+// ============================================================
+function getConfig() {
+    $apikey = getenv('APIKEY');
+    $coki   = getenv('COOKIE');
+    $ua     = getenv('USER_AGENT') ?: "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Mobile Safari/537.36";
+    $currency = getenv('CURRENCY') ?: null; // opsional: set currency langsung dari env
+
+    if (!$apikey || !$coki) {
+        echo merah . "ERROR: Environment variable APIKEY dan COOKIE harus di-set di Railway!\n";
+        echo putih . "Set di Railway:\n";
+        echo kuning . "  APIKEY=your_api_key\n";
+        echo kuning . "  COOKIE=your_cookie_here\n";
+        echo kuning . "  CURRENCY=ltc  (opsional, default pilih manual)\n";
+        exit(1);
+    }
+
+    return [
+        'apikey'     => $apikey,
+        'cookie'     => $coki,
+        'user_agent' => $ua,
+        'currency'   => $currency,
+    ];
+}
+
+// ============================================================
+// MAIN
+// ============================================================
 clear();
 banner();
 
-
-$apikey = getenv('API_KEY');
-$coki   = getenv('COOKIE');
-$ua     = getenv('USER_AGENT') ?: "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 Chrome/142.0.0.0 Mobile Safari/537.36";
-$memek  = strtolower(getenv('COIN') ?: 'usdt');
-
-if (!$apikey || !$coki) {
-    die("API_KEY atau COOKIE belum diisi!\n");
-}
-
+$config   = getConfig();
+$apikey   = $config['apikey'];
+$coki     = $config['cookie'];
+$ua       = $config['user_agent'];
 
 dash:
 clear();
 banner();
 
-
-
 $a = [
     "host: 99faucet.com",
     "user-agent: " . $ua,
-    "accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,q=0.8,application/signed-exchange;v=b3;q=0.7",
-    "referer: ".host."/faucet/pepe",
+    "accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+    "referer: " . host . "/faucet/pepe",
     "cookie: " . $coki
 ];
 
-$url = host."/dashboard";
+$url  = host . "/dashboard";
 $dash = skibidixxx($url, "GET", [], $a);
+
 if ($dash == "ngelek" || strpos($dash, "Just a moment") !== false) {
-    bypassCloudflare($config, $configFile, $url);
+    bypassCloudflare($config, $url);
     $coki = $config['cookie'];
     $ua   = $config['user_agent'];
     goto dash;
 }
 
 if (strpos($dash, "Dashboard | 99Faucet") !== false) {
-    preg_match_all('/<a href="https:\/\/99faucet\.com\/faucet\/([^"]+)" class="">/', $dash, $matches);
+    preg_match_all('/<a href__="https:\/\/99faucet\.com\/faucet\/([^"]+)" class="">/', $dash, $matches);
     $currencies = $matches[1];
     usort($currencies, function($a, $b) {
         return strlen($a) - strlen($b);
     });
-    $columns = 4;
-    $total = count($currencies);
-    for ($i = 0; $i < $total; $i++) {
-        $num = $i + 1;
-        $currency = strtoupper($currencies[$i]);
-        echo putih."(" . str_pad($num, 2, ' ', STR_PAD_LEFT) . ") ".hijau . str_pad($currency, 6, ' ') . "".putih;
-        if (($i + 1) % $columns == 0 || $i == $total - 1) {
-            echo "\n";
-        }
-    }
-    echo putih."chosee: ".merah;
-    $memek = strtolower(getenv('COIN') ?: 'usdt');
 
-        echo putih."Coin : ".hijau.strtoupper($memek)."\n";
-        echo putih."Auto Mode Railway\n\n";
-    fclose($handle);
-    if (!is_numeric($input)) {
-        echo putih."Invalid input! Please enter a number.\n";
-        sleep(2);
-        goto dash;
+    // ✅ Jika CURRENCY sudah di-set di env, skip pilihan manual
+    if (!empty($config['currency'])) {
+        $memek = strtolower($config['currency']);
+        echo hijau . "Currency dari ENV: " . $memek . "\n\n";
+    } else {
+        $columns = 4;
+        $total   = count($currencies);
+        for ($i = 0; $i < $total; $i++) {
+            $num      = $i + 1;
+            $currency = strtoupper($currencies[$i]);
+            echo putih . "(" . str_pad($num, 2, ' ', STR_PAD_LEFT) . ") " . hijau . str_pad($currency, 6, ' ') . "" . putih;
+            if (($i + 1) % $columns == 0 || $i == $total - 1) echo "\n";
+        }
+        echo putih . "chosee: " . merah;
+        $handle = fopen("php://stdin", "r");
+        $input  = trim(fgets($handle));
+        fclose($handle);
+        if (!is_numeric($input)) {
+            echo putih . "Invalid input!\n";
+            sleep(2);
+            goto dash;
+        }
+        $input = (int)$input;
+        if ($input < 1 || $input > count($currencies)) {
+            echo putih . "Invalid selection!\n";
+            sleep(4);
+            goto dash;
+        }
+        $memek = strtolower($currencies[$input - 1]);
+        echo putih . "chosee: " . hijau . $memek . "\n\n";
     }
-    $input = (int)$input;
-    if ($input < 1 || $input > count($currencies)) {
-        echo putih."Invalid selection! Please choose between 1-" . count($currencies) . "\n";
-        sleep(4);
-        goto dash;
-    }
-    $selectedCurrency = $currencies[$input-1];
-    $memek = strtolower($selectedCurrency);
-    echo putih."chosee: ".hijau .$memek. "\n\n";
 
     reload:
-    while(true){
+    while (true) {
         $a = [
             "host: 99faucet.com",
             "user-agent: " . $ua,
-            "accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,q=0.8,application/signed-exchange;v=b3;q=0.7",
-            "referer: ".host."/dashboard",
+            "accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+            "referer: " . host . "/dashboard",
             "cookie: " . $coki
         ];
 
         $c = [
             "host: 99faucet.com",
-            "origin: ".host,
+            "origin: " . host,
             "content-type: application/x-www-form-urlencoded",
             "user-agent: " . $ua,
-            "accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,q=0.8,application/signed-exchange;v=b3;q=0.7",
+            "accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
             "referer: https://99faucet.com/faucet/ltc",
             "cookie: " . $coki
         ];
 
-        $url = host."/faucet/".$memek;
+        $url    = host . "/faucet/" . $memek;
         $faucet = skibidixxx($url, "GET", [], $a);
 
         if ($faucet == "ngelek" || strpos($faucet, "Just a moment") !== false) {
-            bypassCloudflare($config, $configFile, $url);
+            bypassCloudflare($config, $url);
             $coki = $config['cookie'];
             $ua   = $config['user_agent'];
             goto reload;
         }
 
         if (strpos($faucet, "Shortlinks | 99Faucet") !== false) {
-	    echo putih."------------------------------------------------------\n";
-            echo kuning."You Need to Complete Atleast 1 Shortlinks!\n";
-            echo putih."enter to reload..";
-            trim(fgets(STDIN));
+            echo putih . "------------------------------------------------------\n";
+            echo kuning . "You Need to Complete Atleast 1 Shortlinks!\n";
+            echo putih . "Waiting 60 detik lalu retry...\n";
+            timer(60);
             goto reload;
         }
+
         $token = explode('"', explode('<input type="hidden" name="token" value="', $faucet)[1])[0];
 
-        $app_id = "1044";
+        $app_id     = "1044";
         $public_key = "ws1WNm5E0xjtnezLT8r9";
-        $version = "v5";
-        $reff = "https://99faucet.com/";
+        $version    = "v5";
+        $reff       = "https://99faucet.com/";
 
         $bypass = slider($app_id, $public_key, $version, $reff, $apikey);
         if (is_array($bypass)) {
-        
-        $data = http_build_query([
-            "ci_csrf_token" => "",
-            "token" => $token,
-            "currency" => $memek,
-            "captcha" => "rscaptchav37",
-            "rscaptcha_token" => $bypass["rs_token"],
-            "rscaptcha_response" => $bypass["rs_res"],
-            "uf" => uf(),
-            "utt" => "Asia/Jakarta",
-            "ls" => "id,en-US,en,ms,ru"
-        ]);
-        timer(5);
-        $url = host."/faucet/verify";
-        $claim = skibidixxx($url, "POST", $data, $c);
-        
-        if (strpos($claim, "Good job!") !== false) {
-            $msg = explode("'", explode("text: '", $claim)[1])[0];
-            $timer = explode(' -', explode('let wait = ', $claim)[1])[0];
-            echo hijau.$msg."\n";
-            timer($timer);
-        } elseif (strpos($claim, "Invalid") !== false){
-            echo "Invalid captcha or invalid claim!\n";
-            goto reload;
-        } elseif (strpos($claim, "The faucet does not have sufficient funds") !== false) {
-	    echo putih."------------------------------------------------------\n";
-            echo kuning."The faucet does not have sufficient funds.\n";
-            echo putih."enter to menu..";
-            trim(fgets(STDIN));
-            goto dash;
-        } else {
-            echo merah."Error tidak tahu gua anjay!";
-	    sleep(1.8);
-	    echo "\r                                  \r";
-            goto reload;
-        }
+            $data = http_build_query([
+                "ci_csrf_token"      => "",
+                "token"              => $token,
+                "currency"           => $memek,
+                "captcha"            => "rscaptchav37",
+                "rscaptcha_token"    => $bypass["rs_token"],
+                "rscaptcha_response" => $bypass["rs_res"],
+                "uf"                 => uf(),
+                "utt"                => "Asia/Jakarta",
+                "ls"                 => "id,en-US,en,ms,ru"
+            ]);
+            timer(5);
+            $url   = host . "/faucet/verify";
+            $claim = skibidixxx($url, "POST", $data, $c);
+
+            if (strpos($claim, "Good job!") !== false) {
+                $msg   = explode("'", explode("text: '", $claim)[1])[0];
+                $timer = explode(' -', explode('let wait = ', $claim)[1])[0];
+                echo hijau . $msg . "\n";
+                timer($timer);
+            } elseif (strpos($claim, "Invalid") !== false) {
+                echo "Invalid captcha or invalid claim!\n";
+                goto reload;
+            } elseif (strpos($claim, "The faucet does not have sufficient funds") !== false) {
+                echo putih . "------------------------------------------------------\n";
+                echo kuning . "The faucet does not have sufficient funds.\n";
+                echo putih . "Waiting 300 detik lalu retry...\n";
+                timer(300);
+                goto dash;
+            } else {
+                echo merah . "Error tidak tahu gua anjay!";
+                sleep(2);
+                echo "\r                                  \r";
+                goto reload;
+            }
 
         } elseif (in_array($bypass, ["WRONG_CAPTCHA_ID", "ERROR_CAPTCHA_UNSOLVABLE", "ERROR_TOO_MANY_REQUESTS", "ERROR_SOLVE_PENDING", "INTENAL_SERVER_ERROR"])) {
-        goto reload;
+            goto reload;
         } else {
-        echo putih . "Error: " . merah . " Tidak di ketahui!! coba lagi...\n";
-        goto reload;
-     }
+            echo putih . "Error: " . merah . " Tidak di ketahui!! coba lagi...\n";
+            goto reload;
+        }
     }
 } else {
-    echo putih."Hiii Login again ....!\n";
-    @unlink($configFile);
-    sleep(4);
-    goto login;
+    echo putih . "Cookie expired / login gagal!\n";
+    echo merah . "Update env var COOKIE di Railway lalu restart service.\n";
+    exit(1);
 }
